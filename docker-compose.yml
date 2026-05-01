@@ -1,0 +1,57 @@
+version: "3.9"
+
+services:
+
+  # ── Backend (FastAPI) ──────────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: agrovault_backend
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=${DATABASE_URL:-sqlite:///./agrovault.db}
+      - SECRET_KEY=${SECRET_KEY:-change-this-in-production-use-a-long-random-string}
+      - ALGORITHM=${ALGORITHM:-HS256}
+      - ACCESS_TOKEN_EXPIRE_MINUTES=${ACCESS_TOKEN_EXPIRE_MINUTES:-480}
+      - DEBUG=${DEBUG:-false}
+      - CORS_ORIGINS=${CORS_ORIGINS:-["http://localhost","http://localhost:80"]}
+    volumes:
+      - agrovault_db:/app/data
+    networks:
+      - agrovault_net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    expose:
+      - "8000"
+
+  # ── Frontend (Nginx serving React dist + reverse proxy to backend) ─────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: agrovault_frontend
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-80}:80"
+      - "${APP_PORT_SSL:-443}:443"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - agrovault_net
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+
+# ── Volumes & Networks ────────────────────────────────────────────────────────
+volumes:
+  agrovault_db:
+    driver: local
+
+networks:
+  agrovault_net:
+    driver: bridge
