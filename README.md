@@ -1,4 +1,4 @@
-Agrovault OS
+AgroVault OS
 Live at: https://agrovault-nu.vercel.app
 
 
